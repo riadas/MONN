@@ -1,8 +1,8 @@
 import numpy as np
 import pickle
 from sklearn.metrics import mean_squared_error, precision_score, roc_auc_score
-#from sklearn.model_selection import KFold
-from sklearn.cross_validation import KFold
+from sklearn.model_selection import KFold
+# from sklearn.cross_validation import KFold
 import time
 import torch
 from torch import nn
@@ -98,7 +98,7 @@ def get_mask(arr_list):
 #embedding selection function
 def add_index(input_array, ebd_size):
 	batch_size, n_vertex, n_nbs = np.shape(input_array)
-	add_idx = np.array(range(0,(ebd_size)*batch_size,ebd_size)*(n_nbs*n_vertex))
+	add_idx = np.array(list(range(0,(ebd_size)*batch_size,ebd_size))*(n_nbs*n_vertex))
 	add_idx = np.transpose(add_idx.reshape(-1,batch_size))
 	add_idx = add_idx.reshape(-1)
 	new_array = input_array.reshape(-1)+add_idx
@@ -151,9 +151,9 @@ def split_train_test_clusters(measure, clu_thre, n_fold):
 	# load cluster dict
 	cluster_path = '../preprocessing/'
 	with open(cluster_path+measure+'_compound_cluster_dict_'+str(clu_thre), 'rb') as f:
-		C_cluster_dict = pickle.load(f)
+		C_cluster_dict = pickle.load(f, encoding='latin1')
 	with open(cluster_path+measure+'_protein_cluster_dict_'+str(clu_thre), 'rb') as f:
-		P_cluster_dict = pickle.load(f)
+		P_cluster_dict = pickle.load(f, encoding='latin1')
 	
 	C_cluster_set = set(list(C_cluster_dict.values()))
 	P_cluster_set = set(list(P_cluster_dict.values()))
@@ -162,16 +162,16 @@ def split_train_test_clusters(measure, clu_thre, n_fold):
 	np.random.shuffle(C_cluster_list)
 	np.random.shuffle(P_cluster_list)
 	# n-fold split
-	c_kf = KFold(len(C_cluster_list), n_fold, shuffle=True)
-	p_kf = KFold(len(P_cluster_list), n_fold, shuffle=True)
-	#c_kf = KFold(n_fold,shuffle=True)
-	#p_kf = KFold(n_fold,shuffle=True)
+	# c_kf = KFold(len(C_cluster_list), n_fold, shuffle=True) #
+	# p_kf = KFold(len(P_cluster_list), n_fold, shuffle=True)
+	c_kf = KFold(n_fold,shuffle=True)
+	p_kf = KFold(n_fold,shuffle=True)
 	c_train_clusters, c_test_clusters = [], []
-	for train_idx, test_idx in c_kf: #.split(C_cluster_list):
+	for train_idx, test_idx in c_kf.split(C_cluster_list):
 		c_train_clusters.append(C_cluster_list[train_idx])
 		c_test_clusters.append(C_cluster_list[test_idx])
 	p_train_clusters, p_test_clusters = [], []
-	for train_idx, test_idx in p_kf: #.split(P_cluster_list):
+	for train_idx, test_idx in p_kf.split(P_cluster_list):
 		p_train_clusters.append(P_cluster_list[train_idx])
 		p_test_clusters.append(P_cluster_list[test_idx])
 	
@@ -183,9 +183,9 @@ def split_train_test_clusters(measure, clu_thre, n_fold):
 			pair_list.append('c'+str(i_c)+'p'+str(i_p))
 	pair_list = np.array(pair_list)
 	np.random.shuffle(pair_list)
-	pair_kf = KFold(len(pair_list), n_fold, shuffle=True)
+	pair_kf = KFold(n_fold,shuffle=True) # pair_kf = KFold(len(pair_list), n_fold, shuffle=True)
 	pair_train_clusters, pair_test_clusters = [], []
-	for train_idx, test_idx in pair_kf: #.split(pair_list):
+	for train_idx, test_idx in pair_kf.split(pair_list):
 		pair_train_clusters.append(pair_list[train_idx])
 		pair_test_clusters.append(pair_list[test_idx])
 	
@@ -195,14 +195,14 @@ def split_train_test_clusters(measure, clu_thre, n_fold):
 def load_data(measure, setting, clu_thre, n_fold):
 	# load data
 	with open('../preprocessing/pdbbind_all_combined_input_'+measure,'rb') as f:
-		data_pack = pickle.load(f)
-	cid_list = data_pack[7]
-	pid_list = data_pack[8]
+		data_pack = pickle.load(f, encoding='latin1')
+	cid_list = list(map(lambda x : x.decode(), data_pack[7]))
+	pid_list = list(map(lambda x : x.decode(), data_pack[8]))
 	n_sample = len(cid_list)
 	
 	# train-test split
 	train_idx_list, valid_idx_list, test_idx_list = [], [], []
-	print 'setting:', setting
+	print('setting:', setting)
 	if setting == 'imputation':
 		pair_train_clusters, pair_test_clusters, c_train_clusters, c_test_clusters, p_train_clusters, p_test_clusters, C_cluster_dict, P_cluster_dict \
 		= split_train_test_clusters(measure, clu_thre, n_fold)
@@ -225,7 +225,7 @@ def load_data(measure, setting, clu_thre, n_fold):
 			train_idx_list.append(train_idx)
 			valid_idx_list.append(valid_idx)
 			test_idx_list.append(test_idx)
-			print 'fold', fold, 'train ',len(train_idx),'test ',len(test_idx),'valid ',len(valid_idx)
+			print('fold', fold, 'train ',len(train_idx),'test ',len(test_idx),'valid ',len(valid_idx))
 			
 	elif setting == 'new_protein':
 		pair_train_clusters, pair_test_clusters, c_train_clusters, c_test_clusters, p_train_clusters, p_test_clusters, C_cluster_dict, P_cluster_dict \
@@ -247,7 +247,7 @@ def load_data(measure, setting, clu_thre, n_fold):
 			train_idx_list.append(train_idx)
 			valid_idx_list.append(valid_idx)
 			test_idx_list.append(test_idx)
-			print 'fold', fold, 'train ',len(train_idx),'test ',len(test_idx),'valid ',len(valid_idx)
+			print('fold', fold, 'train ',len(train_idx),'test ',len(test_idx),'valid ',len(valid_idx))
 			
 	elif setting == 'new_compound':
 		pair_train_clusters, pair_test_clusters, c_train_clusters, c_test_clusters, p_train_clusters, p_test_clusters, C_cluster_dict, P_cluster_dict \
@@ -258,6 +258,9 @@ def load_data(measure, setting, clu_thre, n_fold):
 			c_train = set(c_train_valid)-set(c_valid)
 			train_idx, valid_idx, test_idx = [], [], []
 			for ele in range(n_sample):
+				# print(ele)
+				# print(list(cid_list)[1].decode())
+				# print(list(C_cluster_dict.keys())[1])
 				if C_cluster_dict[cid_list[ele]] in c_train:
 					train_idx.append(ele)
 				elif C_cluster_dict[cid_list[ele]] in c_valid:
@@ -269,7 +272,7 @@ def load_data(measure, setting, clu_thre, n_fold):
 			train_idx_list.append(train_idx)
 			valid_idx_list.append(valid_idx)
 			test_idx_list.append(test_idx)
-			print 'fold', fold, 'train ',len(train_idx),'test ',len(test_idx),'valid ',len(valid_idx)
+			print('fold', fold, 'train ',len(train_idx),'test ',len(test_idx),'valid ',len(valid_idx))
 	
 	elif setting == 'new_new':
 		assert n_fold ** 0.5 == int(n_fold ** 0.5)
@@ -296,26 +299,26 @@ def load_data(measure, setting, clu_thre, n_fold):
 				train_idx_list.append(train_idx)
 				valid_idx_list.append(valid_idx)
 				test_idx_list.append(test_idx)
-				print 'fold', fold_x*int(n_fold ** 0.5)+fold_y, 'train ',len(train_idx),'test ',len(test_idx),'valid ',len(valid_idx)
+				print('fold', fold_x*int(n_fold ** 0.5)+fold_y, 'train ',len(train_idx),'test ',len(test_idx),'valid ',len(valid_idx))
 	return data_pack, train_idx_list, valid_idx_list, test_idx_list
 
 
 # network utils
 def loading_emb(measure):
 	#load intial atom and bond features (i.e., embeddings)
-	f = open('../preprocessing/pdbbind_all_atom_dict_'+measure)
+	f = open('../preprocessing/pdbbind_all_atom_dict_'+measure, "rb")
 	atom_dict = pickle.load(f)
 	f.close()
 	
-	f = open('../preprocessing/pdbbind_all_bond_dict_'+measure)
+	f = open('../preprocessing/pdbbind_all_bond_dict_'+measure, "rb")
 	bond_dict = pickle.load(f)
 	f.close()
 	
-	f = open('../preprocessing/pdbbind_all_word_dict_'+measure)
+	f = open('../preprocessing/pdbbind_all_word_dict_'+measure, "rb")
 	word_dict = pickle.load(f)
 	f.close()
 	
-	print 'atom dict size:', len(atom_dict), ', bond dict size:', len(bond_dict), ', word dict size:', len(word_dict)
+	print('atom dict size:', len(atom_dict), ', bond dict size:', len(bond_dict), ', word dict size:', len(word_dict))
 	
 	init_atom_features = np.zeros((len(atom_dict), atom_fdim))
 	init_bond_features = np.zeros((len(bond_dict), bond_fdim))
