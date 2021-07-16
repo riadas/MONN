@@ -4,43 +4,31 @@ import pickle
 import sys
 import numpy as np
 import pandas as pd
-from rdkit import Chem
-from rdkit.Chem import AllChem
-from rdkit import DataStructs
-from rdkit.ML.Cluster import Butina
 from scipy.cluster.hierarchy import fcluster, linkage, single
 from scipy.spatial.distance import pdist
 import seaborn as sns
 import matplotlib.pyplot as plt
 import random
-from preprocessing_and_clustering import Mol2Graph, Protein2Sequence 
-from pdbbind_utils.py import batch_data_process
-
-atom_dict = defaultdict(lambda: len(atom_dict))
-bond_dict = defaultdict(lambda: len(bond_dict))
-word_dict = defaultdict(lambda: len(word_dict))
+# from pdbbind_utils.py import batch_data_process
 
 data_dir = "/Users/sdas/ria-code/enzyme-datasets/data/processed/"
 data_files = list(filter(lambda x : ".csv" in x, os.listdir(data_dir)))
+for data_file in data_files:
+    substrate_dict_file_name = data_file[:-4] + "_SUBSTRATES.pickle"
+    seq_dict_file_name = data_file[:-4] + "_SEQS.pickle"
+    with open(data_dir + substrate_dict_file_name, 'rb') as handle:
+        substrate_dict = pickle.load(handle)
 
-data_file = "aminotransferase_binary.csv"
-df = pd.read_csv(os.path.join(data_dir, data_file), index_col=0)
-print(df.columns)
-
-substrates = list(pd.unique(df["SUBSTRATES"]))
-seqs = list(pd.unique(df["SEQ"]))
-
-substrate = random.choice(substrates)
-seq = random.choice(seqs)
-
-# get RDKit mol
-substrate_mol = Chem.MolFromSmiles(substrate)
+    with open(data_dir + seq_dict_file_name, 'rb') as handle:
+        seq_dict = pickle.load(handle)
+    
+    
 
 # convert RDKit mol into graph form for input into model
 fatoms, fbonds, atom_nb, bond_nb, num_nbs_mat = Mol2Graph(substrate_mol)
 sequence_input = Protein2Sequence(seq, ngram=1)
 
-# final form of model input data
+final form of model input data
 vertex_mask, vertex, edge, atom_adj, bond_adj, nbs_mask, seq_mask, sequence = batch_data_process([fatoms, fbonds, atom_nb, bond_nb, num_nbs_mat, sequence_input])
 
 # load trained MONN model 

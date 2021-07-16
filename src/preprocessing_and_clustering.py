@@ -10,6 +10,22 @@ from rdkit.ML.Cluster import Butina
 from scipy.cluster.hierarchy import fcluster, linkage, single
 from scipy.spatial.distance import pdist
 
+from collections import defaultdict
+import os
+import pickle
+import sys
+import numpy as np
+import pandas as pd
+from rdkit import Chem
+from rdkit.Chem import AllChem
+from rdkit import DataStructs
+from rdkit.ML.Cluster import Butina
+from scipy.cluster.hierarchy import fcluster, linkage, single
+from scipy.spatial.distance import pdist
+import seaborn as sns
+import matplotlib.pyplot as plt
+import random
+
 
 elem_list = ['C', 'N', 'O', 'S', 'F', 'Si', 'P', 'Cl', 'Br', 'Mg', 'Na', 'Ca', 'Fe', 'As', 'Al', 'I', 'B', 'V', 'K', 'Tl', 'Yb', 'Sb', 'Sn', 'Ag', 'Pd', 'Co', 'Se', 'Ti', 'Zn', 'H', 'Li', 'Ge', 'Cu', 'Au', 'Ni', 'Cd', 'In', 'Mn', 'Zr', 'Cr', 'Pt', 'Hg', 'Pb', 'W', 'Ru', 'Nb', 'Re', 'Te', 'Rh', 'Tc', 'Ba', 'Bi', 'Hf', 'Mo', 'U', 'Sm', 'Os', 'Ir', 'Ce','Gd','Ga','Cs', 'unknown']
 aa_list = ['A', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'K', 'L', 'M', 'N', 'P', 'Q', 'R', 'S', 'T', 'V', 'W', 'Y']
@@ -215,13 +231,13 @@ def pickle_dump(dictionary, file_name):
 
 if __name__ == "__main__":
     
-    MEASURE = 'KIKD' # 'IC50' or 'KIKD'
-    print('Create dataset for measurement:', MEASURE)
-    print('Step 1/5, loading dict...')
+    # MEASURE = 'KIKD' # 'IC50' or 'KIKD'
+    # print('Create dataset for measurement:', MEASURE)
+    # print('Step 1/5, loading dict...')
     # load label dicts
-    mol_dict = get_mol_dict()
-    with open('../data/out7_final_pairwise_interaction_dict','rb') as f:
-        interaction_dict = pickle.load(f)
+    # mol_dict = get_mol_dict()
+    # with open('../data/out7_final_pairwise_interaction_dict','rb') as f:
+    #     interaction_dict = pickle.load(f)
     
     # initialize feature dicts
     wlnn_train_list = []
@@ -233,97 +249,123 @@ if __name__ == "__main__":
     word_dict['X']
     
     # get labels
-    i = 0
-    pair_info_dict = {}
-    f = open('../data/pdbbind_all_datafile.tsv')
-    print('Step 2/5, generating labels...')
-    for line in f.readlines():
-        i += 1
-        if i % 1000 == 0:
-            print('processed sample num', i)
-        pdbid, pid, cid, inchi, seq, measure, label = line.strip().split('\t')
-        # filter interaction type and invalid molecules
-        if MEASURE == 'All':
-            pass
-        elif MEASURE == 'KIKD':
-            if measure not in ['Ki', 'Kd']:
-                continue
-        elif measure != MEASURE:
-            continue
-        if cid not in mol_dict:
-            print('ligand not in mol_dict')
-            continue
-        mol = mol_dict[cid]
+    # i = 0
+    # pair_info_dict = {}
+    # f = open('../data/pdbbind_all_datafile.tsv')
+    # print('Step 2/5, generating labels...')
+    # for line in f.readlines():
+    #     i += 1
+    #     if i % 1000 == 0:
+    #         print('processed sample num', i)
+    #     pdbid, pid, cid, inchi, seq, measure, label = line.strip().split('\t')
+    #     # filter interaction type and invalid molecules
+    #     if MEASURE == 'All':
+    #         pass
+    #     elif MEASURE == 'KIKD':
+    #         if measure not in ['Ki', 'Kd']:
+    #             continue
+    #     elif measure != MEASURE:
+    #         continue
+    #     if cid not in mol_dict:
+    #         print('ligand not in mol_dict')
+    #         continue
+    #     mol = mol_dict[cid]
         
-        # get labels
-        value = float(label)
-        pairwise_mask, pairwise_mat = get_pairwise_label(pdbid, interaction_dict)
+    #     # get labels
+    #     value = float(label)
+    #     pairwise_mask, pairwise_mat = get_pairwise_label(pdbid, interaction_dict)
         
-        # handle the condition when multiple PDB entries have the same Uniprot ID and Inchi
-        if inchi+' '+pid not in pair_info_dict:
-            pair_info_dict[inchi+' '+pid] = [pdbid, cid, pid, value, mol, seq, pairwise_mask, pairwise_mat]
-        else:
-            if pair_info_dict[inchi+' '+pid][6]:
-                if pairwise_mask and pair_info_dict[inchi+' '+pid][3] < value:
-                    pair_info_dict[inchi+' '+pid] = [pdbid, cid, pid, value, mol, seq, pairwise_mask, pairwise_mat]
-            else:
-                if pair_info_dict[inchi+' '+pid][3] < value:
-                    pair_info_dict[inchi+' '+pid] = [pdbid, cid, pid, value, mol, seq, pairwise_mask, pairwise_mat]
-    f.close()
+    #     # handle the condition when multiple PDB entries have the same Uniprot ID and Inchi
+    #     if inchi+' '+pid not in pair_info_dict:
+    #         pair_info_dict[inchi+' '+pid] = [pdbid, cid, pid, value, mol, seq, pairwise_mask, pairwise_mat]
+    #     else:
+    #         if pair_info_dict[inchi+' '+pid][6]:
+    #             if pairwise_mask and pair_info_dict[inchi+' '+pid][3] < value:
+    #                 pair_info_dict[inchi+' '+pid] = [pdbid, cid, pid, value, mol, seq, pairwise_mask, pairwise_mat]
+    #         else:
+    #             if pair_info_dict[inchi+' '+pid][3] < value:
+    #                 pair_info_dict[inchi+' '+pid] = [pdbid, cid, pid, value, mol, seq, pairwise_mask, pairwise_mat]
+    # f.close()
     
-    print('Step 3/5, generating inputs...')
-    valid_value_list = []
-    valid_cid_list = []
-    valid_pid_list = []
-    valid_pairwise_mask_list = []
-    valid_pairwise_mat_list = []
-    mol_inputs, seq_inputs = [], []
+    # print('Step 3/5, generating inputs...')
+    # valid_value_list = []
+    # valid_cid_list = []
+    # valid_pid_list = []
+    # valid_pairwise_mask_list = []
+    # valid_pairwise_mat_list = []
+    # mol_inputs, seq_inputs = [], []
     
-    # get inputs
-    for item in pair_info_dict:
-        pdbid, cid, pid, value, mol, seq, pairwise_mask, pairwise_mat = pair_info_dict[item]
-        fa, fb, anb, bnb, nbs_mat = Mol2Graph(mol)
-        if fa==[]:
-            print('num of neighbor > 6, ', cid)
-            continue
-        mol_inputs.append([fa, fb, anb, bnb, nbs_mat])
-        seq_inputs.append(Protein2Sequence(seq,ngram=1))
-        valid_value_list.append(value)
-        valid_cid_list.append(cid)
-        valid_pid_list.append(pid)
-        valid_pairwise_mask_list.append(pairwise_mask)
-        valid_pairwise_mat_list.append(pairwise_mat)
-        wlnn_train_list.append(pdbid)
+    # # get inputs
+    # for item in pair_info_dict:
+    #     pdbid, cid, pid, value, mol, seq, pairwise_mask, pairwise_mat = pair_info_dict[item]
+    #     fa, fb, anb, bnb, nbs_mat = Mol2Graph(mol)
+    #     if fa==[]:
+    #         print('num of neighbor > 6, ', cid)
+    #         continue
+    #     mol_inputs.append([fa, fb, anb, bnb, nbs_mat])
+    #     seq_inputs.append(Protein2Sequence(seq,ngram=1))
+    #     valid_value_list.append(value)
+    #     valid_cid_list.append(cid)
+    #     valid_pid_list.append(pid)
+    #     valid_pairwise_mask_list.append(pairwise_mask)
+    #     valid_pairwise_mat_list.append(pairwise_mat)
+    #     wlnn_train_list.append(pdbid)
     
-    print('Step 4/5, saving data...')
-    # get data pack
-    fa_list, fb_list, anb_list, bnb_list, nbs_mat_list = zip(*mol_inputs)
-    data_pack = [np.array(fa_list), np.array(fb_list), np.array(anb_list), np.array(bnb_list), np.array(nbs_mat_list), np.array(seq_inputs), \
-    np.array(valid_value_list), np.array(valid_cid_list), np.array(valid_pid_list), np.array(valid_pairwise_mask_list), np.array(valid_pairwise_mat_list)]
+    # print('Step 4/5, saving data...')
+    # # get data pack
+    # fa_list, fb_list, anb_list, bnb_list, nbs_mat_list = zip(*mol_inputs)
+    # data_pack = [np.array(fa_list), np.array(fb_list), np.array(anb_list), np.array(bnb_list), np.array(nbs_mat_list), np.array(seq_inputs), \
+    # np.array(valid_value_list), np.array(valid_cid_list), np.array(valid_pid_list), np.array(valid_pairwise_mask_list), np.array(valid_pairwise_mat_list)]
     
-    # save data
-    with open('../preprocessing/pdbbind_all_combined_input_'+MEASURE, 'wb') as f:
-        pickle.dump(data_pack, f, protocol=0)
+    # # save data
+    # with open('../preprocessing/pdbbind_all_combined_input_'+MEASURE, 'wb') as f:
+    #     pickle.dump(data_pack, f, protocol=0)
     
-    np.save('../preprocessing/wlnn_train_list_'+MEASURE, wlnn_train_list)
+    # np.save('../preprocessing/wlnn_train_list_'+MEASURE, wlnn_train_list)
     
-    pickle_dump(atom_dict, '../preprocessing/pdbbind_all_atom_dict_'+MEASURE)
-    pickle_dump(bond_dict, '../preprocessing/pdbbind_all_bond_dict_'+MEASURE)
-    pickle_dump(word_dict, '../preprocessing/pdbbind_all_word_dict_'+MEASURE)
+    # pickle_dump(atom_dict, '../preprocessing/pdbbind_all_atom_dict_'+MEASURE)
+    # pickle_dump(bond_dict, '../preprocessing/pdbbind_all_bond_dict_'+MEASURE)
+    # pickle_dump(word_dict, '../preprocessing/pdbbind_all_word_dict_'+MEASURE)
     
-    print('Step 5/5, clustering...')
-    compound_list = list(set(valid_cid_list))
-    protein_list = list(set(valid_pid_list))
-    # compound clustering
-    mol_list = [mol_dict[ligand] for ligand in compound_list]
-    compound_clustering(compound_list, mol_list)
-    # protein clustering
-    ori_protein_list = np.load('../data/pdbbind_protein_list.npy').tolist()
-    idx_list = [ori_protein_list.index(pid) for pid in protein_list]
-    protein_clustering(protein_list, idx_list)
+    # print('Step 5/5, clustering...')
+    # compound_list = list(set(valid_cid_list))
+    # protein_list = list(set(valid_pid_list))
+    # # compound clustering
+    # mol_list = [mol_dict[ligand] for ligand in compound_list]
+    # compound_clustering(compound_list, mol_list)
+    # # protein clustering
+    # ori_protein_list = np.load('../data/pdbbind_protein_list.npy').tolist()
+    # idx_list = [ori_protein_list.index(pid) for pid in protein_list]
+    # protein_clustering(protein_list, idx_list)
     
-    print('='*50)
-    print('Finish generating dataset for measurement', MEASURE)
-    print('Number of valid samples', len(valid_value_list))
-    print('Number of unique compounds', len(compound_list))
-    print('Number of unique proteins', len(protein_list))
+    # print('='*50)
+    # print('Finish generating dataset for measurement', MEASURE)
+    # print('Number of valid samples', len(valid_value_list))
+    # print('Number of unique compounds', len(compound_list))
+    # print('Number of unique proteins', len(protein_list))
+
+    data_dir = "/Users/sdas/ria-code/enzyme-datasets/data/processed/"
+    data_files = list(filter(lambda x : ".csv" in x, os.listdir(data_dir)))
+    for data_file in data_files:
+        print(data_file)
+        df = pd.read_csv(os.path.join(data_dir, data_file), index_col=0)
+        substrates = list(pd.unique(df["SUBSTRATES"]))
+        seqs = list(pd.unique(df["SEQ"]))
+
+        substrate_dict = {}
+        seq_dict = {}
+
+        for substrate in substrates:
+            # get RDKit mol
+            substrate_mol = Chem.MolFromSmiles(substrate) 
+            fatoms, fbonds, atom_nb, bond_nb, num_nbs_mat = Mol2Graph(substrate_mol)
+            substrate_dict[substrate] = [fatoms, fbonds, atom_nb, bond_nb, num_nbs_mat]
+
+        for seq in seqs:
+            seq_dict[seq] = Protein2Sequence(seq, ngram=1)
+        
+        with open('enzyme_substrate_data/' + data_file[:-4] + '_SUBSTRATES.pickle', 'wb') as handle:
+            pickle.dump(substrate_dict, handle, protocol=pickle.HIGHEST_PROTOCOL)
+
+        with open('enzyme_substrate_data/' + data_file[:-4] + '_SEQS.pickle', 'wb') as handle:
+            pickle.dump(seq_dict, handle, protocol=pickle.HIGHEST_PROTOCOL)

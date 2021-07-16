@@ -324,10 +324,10 @@ def loading_emb(measure):
 	init_bond_features = np.zeros((len(bond_dict), bond_fdim))
 	init_word_features = np.zeros((len(word_dict), 20))
 	
-	for key,value in atom_dict.items():
+	for key, value in atom_dict.items():
 		init_atom_features[value] = np.array(list(map(int, key)))
 	
-	for key,value in bond_dict.items():
+	for key, value in bond_dict.items():
 		init_bond_features[value] = np.array(list(map(int, key)))
 	
 	blosum_dict = load_blosum62()
