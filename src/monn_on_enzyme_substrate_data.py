@@ -10,13 +10,40 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 import random
 from CPI_model import *
-from preprocessing_and_clustering import *
+from collections import defaultdict
 
 data_dir = "/home/riadas/enzyme-datasets/data/processed/"
 reference_structure_dir = "/home/riadas/enzyme-datasets/data/processed/structure_references/"
 processed_data_dir = "/home/riadas/MONN/src/enzyme_substrate_data/"
 data_files = list(filter(lambda x : ".csv" in x, os.listdir(data_dir)))
 
+# from preprocessing_and_clustering
+elem_list = ['C', 'N', 'O', 'S', 'F', 'Si', 'P', 'Cl', 'Br', 'Mg', 'Na', 'Ca', 'Fe', 'As', 'Al', 'I', 'B', 'V', 'K', 'Tl', 'Yb', 'Sb', 'Sn', 'Ag', 'Pd', 'Co', 'Se', 'Ti', 'Zn', 'H', 'Li', 'Ge', 'Cu', 'Au', 'Ni', 'Cd', 'In', 'Mn', 'Zr', 'Cr', 'Pt', 'Hg', 'Pb', 'W', 'Ru', 'Nb', 'Re', 'Te', 'Rh', 'Tc', 'Ba', 'Bi', 'Hf', 'Mo', 'U', 'Sm', 'Os', 'Ir', 'Ce','Gd','Ga','Cs', 'unknown']
+aa_list = ['A', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'K', 'L', 'M', 'N', 'P', 'Q', 'R', 'S', 'T', 'V', 'W', 'Y']
+atom_fdim = len(elem_list) + 6 + 6 + 6 + 1
+bond_fdim = 6
+max_nb = 6
+
+word_dict = defaultdict(lambda: len(word_dict))
+for aa in aa_list:
+    word_dict[aa]
+word_dict['X']
+
+def Protein2Sequence(sequence, ngram=1):
+    # convert sequence to CNN input
+    sequence = sequence.upper()
+    word_list = [sequence[i:i+ngram] for i in range(len(sequence)-ngram+1)]
+    output = []
+    for word in word_list:
+        if word not in aa_list:
+            output.append(word_dict['X'])
+        else:
+            output.append(word_dict[word])
+    if ngram == 3:
+        output = [-1]+output+[-1] # pad
+    return np.array(output, np.int32)
+
+# end from preprocessing_and_clustering
 
 def random_pairwise_pred(data_file="", count=1, threshold=0.5, max_iters=500):
     if data_file == "":
