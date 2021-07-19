@@ -10,6 +10,7 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 import random
 from CPI_model import *
+from preprocessing_and_clustering import *
 
 data_dir = "/home/riadas/enzyme-datasets/data/processed/"
 reference_structure_dir = "/home/riadas/enzyme-datasets/data/processed/structure_references/"
@@ -87,11 +88,6 @@ def visualize_predicted_pairwise_matrix(pairwise_pred):
     plot = sns.heatmap(pairwise_pred[0])
     return plot
 
-    import functools
-data_files = sorted([file_name for file_name in os.listdir(processed_data_dir) if "binary" in file_name])
-reference_structure_dir = "/Users/riadas/Documents/new_urop/summer/enzyme-datasets/data/processed/structure_references/"
-processed_data_dir = "enzyme_substrate_data/"
-
 def check_interaction_pred_validity():
     net = load_model("KIKD", "new_new")
     results = {}
@@ -118,21 +114,25 @@ def check_interaction_pred_validity():
         with open(processed_data_dir + seq_dict_file_name, 'rb') as handle:
             seq_dict = pickle.load(handle)
 
-        ## only use protein sequences that are already present in sequence featurization dict
-        ## check if seq is in seq_dict or if (seq - padding) is in seq_dict
-        reference_seqs = [s for s in reference_seqs if (s in seq_dict) or functools.reduce(lambda a,b: a or b, list(map(lambda k: k in s, list(seq_dict.keys()))))]
+        # ## only use protein sequences that are already present in sequence featurization dict
+        # ## check if seq is in seq_dict or if (seq - padding) is in seq_dict
+        # reference_seqs = [s for s in reference_seqs if (s in seq_dict) or functools.reduce(lambda a,b: a or b, list(map(lambda k: k in s, list(seq_dict.keys()))))]
 
-        for i in range(len(reference_seqs)):
-            seq = reference_seqs[i]
-            if seq not in seq_dict:
-                new_seq = list(filter(lambda k: k in seq, list(seq_dict.keys())))[0]
-                reference_seqs[i] = new_seq
+        # for i in range(len(reference_seqs)):
+        #     seq = reference_seqs[i]
+        #     if seq not in seq_dict:
+        #         new_seq = list(filter(lambda k: k in seq, list(seq_dict.keys())))[0]
+        #         reference_seqs[i] = new_seq
 
-        print(len(reference_seqs))
+        # print(len(reference_seqs))
         # use net to predict the interaction matrix for each protein and each substrate in the dataset
         results[data_file_prefix] = []
         for seq in reference_seqs:
-            seq_input = seq_dict[seq]
+            seq_input = None 
+            if seq in seq_dict:
+              seq_input = seq_dict[seq]
+            else:
+              seq_input = Protein2Sequence(seq, ngram=1)
             for sub in substrate_dict:
                 sub_input = substrate_dict[sub]
                 affinity_pred, pairwise_pred = predict(net, sub_input, seq_input)
