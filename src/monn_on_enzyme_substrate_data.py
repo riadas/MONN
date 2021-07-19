@@ -12,6 +12,7 @@ import random
 from CPI_model import *
 
 data_dir = "/home/riadas/enzyme-datasets/data/processed/"
+reference_structure_dir = "/home/riadas/enzyme-datasets/data/processed/structure_references/"
 processed_data_dir = "/home/riadas/MONN/src/enzyme_substrate_data/"
 data_files = list(filter(lambda x : ".csv" in x, os.listdir(data_dir)))
 
@@ -86,6 +87,66 @@ def visualize_predicted_pairwise_matrix(pairwise_pred):
     plot = sns.heatmap(pairwise_pred[0])
     return plot
 
+    import functools
+data_files = sorted([file_name for file_name in os.listdir(processed_data_dir) if "binary" in file_name])
+reference_structure_dir = "/Users/riadas/Documents/new_urop/summer/enzyme-datasets/data/processed/structure_references/"
+processed_data_dir = "enzyme_substrate_data/"
+
+def check_interaction_pred_validity():
+    net = load_model("KIKD", "new_new")
+    results = {}
+    for data_file in data_files:
+        print(data_file)
+        # ----- find proteins for which active site shells have been computed -----
+        ## get protein sequence at top of every reference structure file
+        data_file_prefix = data_file.split("_")[0]
+        reference_structure_files = [file_name for file_name in os.listdir(reference_structure_dir) if data_file_prefix in file_name]
+        reference_seqs = list(set([open(reference_structure_dir+f, "r").readlines()[1] for f in reference_structure_files]))
+
+        ## get substrate and sequence featurization dicts
+        dict_file_prefix = ""
+        if "_SUBSTRATES.pickle" in data_file:
+            dict_file_prefix = data_file.replace("_SUBSTRATES.pickle", "")
+        else:
+            dict_file_prefix = data_file.replace("_SEQS.pickle", "")
+
+        substrate_dict_file_name = dict_file_prefix + "_SUBSTRATES.pickle"
+        with open(processed_data_dir + substrate_dict_file_name, 'rb') as handle:
+            substrate_dict = pickle.load(handle)
+
+        seq_dict_file_name = dict_file_prefix + "_SEQS.pickle"
+        with open(processed_data_dir + seq_dict_file_name, 'rb') as handle:
+            seq_dict = pickle.load(handle)
+
+        ## only use protein sequences that are already present in sequence featurization dict
+        ## check if seq is in seq_dict or if (seq - padding) is in seq_dict
+        reference_seqs = [s for s in reference_seqs if (s in seq_dict) or functools.reduce(lambda a,b: a or b, list(map(lambda k: k in s, list(seq_dict.keys()))))]
+
+        for i in range(len(reference_seqs)):
+            seq = reference_seqs[i]
+            if seq not in seq_dict:
+                new_seq = list(filter(lambda k: k in seq, list(seq_dict.keys())))[0]
+                reference_seqs[i] = new_seq
+
+        print(len(reference_seqs))
+        # use net to predict the interaction matrix for each protein and each substrate in the dataset
+        results[data_file_prefix] = []
+        for seq in reference_seqs:
+            seq_input = seq_dict[seq]
+            for sub in substrate_dict:
+                sub_input = substrate_dict[sub]
+                affinity_pred, pairwise_pred = predict(net, sub_input, seq_input)
+                positions = (torch.round(pairwise_pred)[0] > 0).nonzero()
+                for angstroms in range(1, 50):
+                    angstrom_file = open(reference_structure_dir+data_file_prefix+"_reference_" + str(angstroms) + ".txt", "r")
+                    lines = angstrom_file.readlines()[2:]
+                    true_positions = list(map(lambda l: int(l.split(",")[1:]), lines))
+                    intersection = set(positions).intersection(set(true_positions))
+                    if len(intersection) > 0:
+                        results[data_file_prefix].append((angstroms, intersection))
+                        print((angstroms, intersection))
+        return results
+    
 if __name__ == "__main__":
     pred, sub, seq = random_pairwise_pred()
     print(pred)
