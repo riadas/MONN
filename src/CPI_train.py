@@ -97,7 +97,7 @@ def train_and_eval(train_data, valid_data, test_data, params, a_fold, a_rep, bat
 			test_performance, test_label, test_output = test(net, test_data, batch_size)
 		print_perf = [perf_name[i]+' '+str(round(test_performance[i], 6)) for i in range(len(perf_name))]
 		print('test ', len(test_output), ' '.join(print_perf))
-	torch.save(net.state_dict(), "model_rep_"+ str(a_rep) + "_fold_" + str(a_fold))
+	torch.save(net.state_dict(), "new_new_models/model_rep_"+ str(a_rep) + "_fold_" + str(a_fold))
 	print('Finished Training')
 	return test_performance, test_label, test_output
 
@@ -155,7 +155,7 @@ if __name__ == "__main__":
 	elif setting == 'new_new':
 		n_fold = 9
 		batch_size = 32
-		#k_head, kernel_size, hidden_size1, hidden_size2 = 1, 7, 128, 128
+		k_head, kernel_size, hidden_size1, hidden_size2 = 1, 7, 128, 128
 	para_names = ['GNN_depth', 'inner_CNN_depth', 'DMA_depth', 'k_head', 'kernel_size', 'hidden_size1', 'hidden_size2']
 	
 	params = [GNN_depth, inner_CNN_depth, DMA_depth, k_head, kernel_size, hidden_size1, hidden_size2]

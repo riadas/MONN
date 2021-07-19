@@ -28,7 +28,7 @@ def random_pairwise_pred(data_file="", count=1, threshold=0.5, max_iters=500):
     with open(processed_data_dir + seq_dict_file_name, 'rb') as handle:
         seq_dict = pickle.load(handle)
 
-    net = load_model()
+    net = load_model(setting="new_new")
     
     iters = 0
     pred = None 
@@ -43,11 +43,11 @@ def random_pairwise_pred(data_file="", count=1, threshold=0.5, max_iters=500):
         _, pairwise_pred = predict(net, sub_input, seq_input)
         if torch.count_nonzero(pairwise_pred > threshold) >= count:
             print("Found!")
-            pred = pairwise_pred
-            return pred, sub, seq, data_file
+            pred = torch.round(pairwise_pred)
+            return pred, sub, seq, data_file, (pred[0] > 0).nonzero()
         iters += 1
     
-    return pred, "", "", data_file 
+    return pred, "", "", data_file, [] # last return elt is list of nonzero tuples
 
 def load_model(measure="KIKD", setting="new_compound"):
     # define hyperparameters
@@ -70,7 +70,7 @@ def load_model(measure="KIKD", setting="new_compound"):
     init_A, init_B, init_W = loading_emb(measure)
     net = Net(init_A, init_B, init_W, params)
     net.cuda()
-    net.load_state_dict(torch.load("models/new_compound_model"))
+    net.load_state_dict(torch.load("models/"+setting+"_model"))
     return net
 
 def predict(net, sub_input, seq_input, setting="new_compound"):
