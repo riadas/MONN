@@ -11,11 +11,10 @@ import matplotlib.pyplot as plt
 import random
 from CPI_model import *
 from collections import defaultdict
-
+import functools
 data_dir = "/home/riadas/enzyme-datasets/data/processed/"
 reference_structure_dir = "/home/riadas/enzyme-datasets/data/processed/structure_references/"
 processed_data_dir = "/home/riadas/MONN/src/enzyme_substrate_data/"
-data_files = list(filter(lambda x : ".csv" in x, os.listdir(data_dir)))
 
 # from preprocessing_and_clustering
 elem_list = ['C', 'N', 'O', 'S', 'F', 'Si', 'P', 'Cl', 'Br', 'Mg', 'Na', 'Ca', 'Fe', 'As', 'Al', 'I', 'B', 'V', 'K', 'Tl', 'Yb', 'Sb', 'Sn', 'Ag', 'Pd', 'Co', 'Se', 'Ti', 'Zn', 'H', 'Li', 'Ge', 'Cu', 'Au', 'Ni', 'Cd', 'In', 'Mn', 'Zr', 'Cr', 'Pt', 'Hg', 'Pb', 'W', 'Ru', 'Nb', 'Re', 'Te', 'Rh', 'Tc', 'Ba', 'Bi', 'Hf', 'Mo', 'U', 'Sm', 'Os', 'Ir', 'Ce','Gd','Ga','Cs', 'unknown']
@@ -46,6 +45,8 @@ def Protein2Sequence(sequence, ngram=1):
 # end from preprocessing_and_clustering
 
 def random_pairwise_pred(data_file="", count=1, threshold=0.5, max_iters=500):
+    data_files = list(filter(lambda x : ".csv" in x, os.listdir(data_dir)))
+
     if data_file == "":
         data_file = random.choice(data_files)
 
@@ -118,6 +119,8 @@ def visualize_predicted_pairwise_matrix(pairwise_pred):
 def check_interaction_pred_validity():
     net = load_model("KIKD", "new_new")
     results = {}
+    reference_sequences = {}
+    data_files = sorted([file_name for file_name in os.listdir(processed_data_dir) if "binary" in file_name])
     for data_file in data_files:
         print(data_file)
         # ----- find proteins for which active site shells have been computed -----
@@ -141,38 +144,56 @@ def check_interaction_pred_validity():
         with open(processed_data_dir + seq_dict_file_name, 'rb') as handle:
             seq_dict = pickle.load(handle)
 
-        # ## only use protein sequences that are already present in sequence featurization dict
-        # ## check if seq is in seq_dict or if (seq - padding) is in seq_dict
-        # reference_seqs = [s for s in reference_seqs if (s in seq_dict) or functools.reduce(lambda a,b: a or b, list(map(lambda k: k in s, list(seq_dict.keys()))))]
+        ## only use protein sequences that are already present in sequence featurization dict
+        ## check if seq is in seq_dict or if (seq - padding) is in seq_dict
+        #reference_seqs = [s for s in reference_seqs if (s in seq_dict) or functools.reduce(lambda a,b: a or b, list(map(lambda k: k in s, list(seq_dict.keys()))))]
 
-        # for i in range(len(reference_seqs)):
-        #     seq = reference_seqs[i]
-        #     if seq not in seq_dict:
-        #         new_seq = list(filter(lambda k: k in seq, list(seq_dict.keys())))[0]
-        #         reference_seqs[i] = new_seq
+        #for i in range(len(reference_seqs)):
+        #    seq = reference_seqs[i]
+        #    if seq not in seq_dict:
+        #        new_seq = list(filter(lambda k: k in seq, list(seq_dict.keys())))[0]
+        #        reference_seqs[i] = new_seq
 
-        # print(len(reference_seqs))
+        #print(len(reference_seqs))
+        reference_sequences[dict_file_prefix] = reference_seqs
         # use net to predict the interaction matrix for each protein and each substrate in the dataset
-        results[data_file_prefix] = []
-        for seq in reference_seqs:
-            seq_input = None 
-            if seq in seq_dict:
-              seq_input = seq_dict[seq]
-            else:
-              seq_input = Protein2Sequence(seq, ngram=1)
-            for sub in substrate_dict:
-                sub_input = substrate_dict[sub]
-                affinity_pred, pairwise_pred = predict(net, sub_input, seq_input)
-                positions = (torch.round(pairwise_pred)[0] > 0).nonzero()
-                for angstroms in range(1, 50):
-                    angstrom_file = open(reference_structure_dir+data_file_prefix+"_reference_" + str(angstroms) + ".txt", "r")
-                    lines = angstrom_file.readlines()[2:]
-                    true_positions = list(map(lambda l: int(l.split(",")[1:]), lines))
-                    intersection = set(positions).intersection(set(true_positions))
-                    if len(intersection) > 0:
-                        results[data_file_prefix].append((angstroms, intersection))
-                        print((angstroms, intersection))
-        return results
+        if dict_file_prefix not in results:
+            results[dict_file_prefix] = []
+            for seq_index in range(len(reference_seqs)):
+                seq = reference_seqs[seq_index]
+                seq_input = None 
+                if seq in seq_dict:
+                    seq_input = seq_dict[seq]
+                else:
+                    seq_input = Protein2Sequence(seq, ngram=1)
+                for sub_index in range(len(sorted(substrate_dict.keys()))):
+                    sub = sorted(substrate_dict.keys())[sub_index]
+                    sub_input = substrate_dict[sub]
+                    affinity_pred, pairwise_pred = predict(net, sub_input, seq_input)
+                    all_positions = (torch.round(pairwise_pred)[0] > 0).nonzero()
+                    #print(positions)
+                    if len(all_positions) > 0:
+                         #print("found positions!")
+                        #print(positions)
+                        all_positions = np.array((torch.round(pairwise_pred)[0] > 0).nonzero().cpu()[:, 1])
+                    #print(positions)
+                    for position in all_positions:
+                        positions = [position]
+                        for angstroms in range(1, 50):
+                            angstrom_file = open(reference_structure_dir+data_file_prefix+"_reference_" + str(angstroms) + ".txt", "r")
+                            lines = angstrom_file.readlines()[2:]
+                            true_positions = list(map(lambda l: int(l.split(",")[0][1:]), lines))
+                            intersection = set(positions).intersection(set(true_positions))
+                            if len(intersection) > 0:
+                                results[dict_file_prefix].append((position, angstroms, sub_index))
+                                print((angstroms, position, sub_index))
+                                break
+                            if angstroms == 49:
+                                results[dict_file_prefix].append((position, -1, sub_index))
+                                
+    for key in results:
+        results[key] = list(set(results[key]))
+    return results, reference_sequences
     
 if __name__ == "__main__":
     pred, sub, seq = random_pairwise_pred()
