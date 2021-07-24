@@ -79,6 +79,25 @@ def random_pairwise_pred(data_file="", count=1, threshold=0.5, max_iters=500):
     
     return pred, "", "", data_file, [] # last return elt is list of nonzero tuples
 
+def pairwise_pred(data_file, sub, seq):
+    substrate_dict_file_name = data_file[:-4] + "_SUBSTRATES.pickle"
+    with open(processed_data_dir + substrate_dict_file_name, 'rb') as handle:
+        substrate_dict = pickle.load(handle)
+
+    seq_dict_file_name = data_file[:-4] + "_SEQS.pickle"
+    with open(processed_data_dir + seq_dict_file_name, 'rb') as handle:
+        seq_dict = pickle.load(handle)
+
+    net = load_model(setting="new_new")
+
+    sub_input = substrate_dict[sub]
+    seq_input = seq_dict[seq]
+
+    _, pairwise_pred = predict(net, sub_input, seq_input)
+    rounded_pred = torch.round(pairwise_pred)
+    return rounded_pred, (rounded_pred[0] > 0).nonzero() 
+    
+
 def load_model(measure="KIKD", setting="new_compound"):
     # define hyperparameters
     GNN_depth, inner_CNN_depth, DMA_depth = 4, 2, 2
@@ -185,11 +204,11 @@ def check_interaction_pred_validity():
                             true_positions = list(map(lambda l: int(l.split(",")[0][1:]), lines))
                             intersection = set(positions).intersection(set(true_positions))
                             if len(intersection) > 0:
-                                results[dict_file_prefix].append((position, angstroms, sub_index))
-                                print((angstroms, position, sub_index))
+                                results[dict_file_prefix].append((position, angstroms))
+                                print((angstroms, position))
                                 break
                             if angstroms == 49:
-                                results[dict_file_prefix].append((position, -1, sub_index))
+                                results[dict_file_prefix].append((position, -1))
                                 
     for key in results:
         results[key] = list(set(results[key]))
